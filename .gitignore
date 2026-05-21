@@ -12,3 +12,4 @@ var/
 .vs/
 **.DS_Store
 *.pyc
+*:Zone.Identifier
