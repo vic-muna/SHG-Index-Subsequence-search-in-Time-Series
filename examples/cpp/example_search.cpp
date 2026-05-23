@@ -12,9 +12,9 @@ int main(int argc, char** argv) {
 
     std::string algo(argv[1]);
     std::string dataset(argv[2]);
-    int K = std::stoi(argv[3]); 
+    int K = std::stoi(argv[3]);
+    std::string isTimeSeries = argv[4];
 
-    //std::string file = "/home/data/zgongae/VectorsIndex/datasets/" + dataset + "/" + dataset +".data_new";
     std::string file = "./" + dataset + "/" + dataset +".data_new";
     std::ifstream loadin(file.c_str(), std::ios::binary);
     while (!loadin) {
@@ -33,7 +33,9 @@ int main(int argc, char** argv) {
         load_query_groundtruth_(dataset, num_query, queryVectors, groundtruth);
     } else if (dataset == "deep100m" || dataset == "sift100m"){
         load_query_groundtruth100m(dataset, num_query, queryVectors, groundtruth);
-    }else{
+    } else if (isTimeSeries == "true"){
+        
+    } else{
         load_query_groundtruth(dataset, num_query, queryVectors, groundtruth);
     }
 

@@ -139,9 +139,7 @@ float calculateRecall(int &queryID, int &K, std::priority_queue<std::pair<float,
 }
 
 void load_query_groundtruth(std::string &dataset, int &num_query, float** &queryVectors, int** &groundtruth){
-
-    // std::string query_input = "/home/data/zgongae/VectorsIndex/datasets/" + dataset + "/" + dataset +"_query.fvecs";
-    // std::string groundtruth_input = "/home/data/zgongae/VectorsIndex/datasets/" + dataset + "/" + dataset +"_groundtruth.ivecs";
+    
     std::string query_input = "./" + dataset + "/" + dataset +"_query.fvecs";
     std::string groundtruth_input = "./" + dataset + "/" + dataset +"_groundtruth.ivecs";
 
@@ -179,6 +177,16 @@ void load_query_groundtruth(std::string &dataset, int &num_query, float** &query
         file_truth.read((char*)groundtruth[i], sizeof(int) * top);      
     }
     std::cout << "Finish reading ..." << std::endl;
+}
+
+void load_query_groundtruth_ts(std::string &dataset, int &num_query, float** &queryVectors, int** &groundtruth){
+    
+    std::string query_input = "./timeseries/parts/" + dataset + "_query.fvecs";
+    std::string groundtruth_input = "./timeseries/parts/" + dataset + "_groundtruth.ivecs";
+
+
+
+    
 }
 
 void load_query_groundtruth_(std::string &dataset, int &num_query, float** &queryVectors, int** &groundtruth){

@@ -1,6 +1,6 @@
-Build Index Time : 323.032 [s]
-Preprocessing Time: 0.430634 [s]
+Build Index Time : 84.8754 [s]
+Preprocessing Time: 0.320421 [s]
 Levels of HNSW: 3
-Build shortcut time: 0.097103
+Build shortcut time: 0.028799
 Memory cost: 0.740414
 Memory cost of shortcuts: 808
