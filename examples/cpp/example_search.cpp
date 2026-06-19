@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
     std::string algo(argv[1]);
     std::string dataset(argv[2]);
     int K = std::stoi(argv[3]);
-    std::string isTimeSeries = argv[4];
+    int window_size = std::stoi(argv[4]);
 
     std::string file = "./" + dataset + "/" + dataset +".data_new";
     std::ifstream loadin(file.c_str(), std::ios::binary);
@@ -26,36 +26,52 @@ int main(int argc, char** argv) {
     loadin.read((char*)header, sizeof(header));
 
     int num_query = -1;
-    float **queryVectors = nullptr;
-    int **groundtruth = nullptr;
+    
+    // float **queryVectors = nullptr;
 
-    if(dataset == "openai" || dataset == "msturing" ){
-        load_query_groundtruth_(dataset, num_query, queryVectors, groundtruth);
-    } else if (dataset == "deep100m" || dataset == "sift100m"){
-        load_query_groundtruth100m(dataset, num_query, queryVectors, groundtruth);
-    } else if (isTimeSeries == "true"){
-        
-    } else{
-        load_query_groundtruth(dataset, num_query, queryVectors, groundtruth);
-    }
+
+    std::cout << "Eine Time Series wird geladen." << std::endl;
+    num_query = header[2] - window_size + 1;
+    load_query_ts(dataset, num_query, queryVectors);
+    num_base = header[2] - window_size + 1;
+    dim = window_size;
+    
+
 
     // ------------------------------  STEP 2: Initial the index ------------------------------ 
-    num_base = header[1];
-    dim = header[2];
+    
 
     // Initing index
     hnswlib::L2Space space(dim);
-    hnswlib::HEDS<float>* alg_hnsw = new hnswlib::HEDS<float>(&space, dim, num_base + num_query, M, ef_construction);
+    hnswlib::HEDS<float>* alg_hnsw;
 
+    if (isTimeSeries == "true"){
+        std::cout << "Initialize the index for time series data..." << std::endl;
+        alg_hnsw = new hnswlib::HEDS<float>(&space, dim, num_base, M, ef_construction);
+    } else {
+        std::cout << "Initialize the index for vector data..." << std::endl;
+        alg_hnsw = new hnswlib::HEDS<float>(&space, dim, num_base + num_query, M, ef_construction);
+    }
+    
 
     // ------------------------------  STEP 3: Build the index ------------------------------ 
     Performance per;
     Timer t;
     
     float** data = new float* [num_base];
-    for(int i = 0; i< num_base; ++i){
-        data[i] = new float[dim];
-        loadin.read((char*)data[i], sizeof(float) * header[2]);        
+
+    if (isTimeSeries == "true"){
+        std::cout << "Start loading time series data..." << std::endl;
+        for(int i = 0; i < num_base; ++i){
+            data[i] = new float[dim];
+            loadin.read((char*)data[i], sizeof(float) * window_size);        
+        }
+    } else {
+        std::cout << "Start loading vector data..." << std::endl;
+        for(int i = 0; i < num_base; ++i){
+            data[i] = new float[dim];
+            loadin.read((char*)data[i], sizeof(float) * header[2]);        
+        }
     }
 
     std:: cout <<  "maxFixLevel_ : " <<  alg_hnsw->maxFixLevel_ << " " << "rep_size: " << alg_hnsw->data_rep_size_ << std::endl;
