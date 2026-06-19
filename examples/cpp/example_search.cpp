@@ -1,5 +1,5 @@
 #include "../../hnswlib/hnswlib.h"
-#include "../../timeseries/TimeSeriesHNSW.h"
+#include "../../ts/TimeSeriesHNSW.h"
 
 int main(int argc, char** argv) {
 
@@ -44,7 +44,6 @@ int main(int argc, char** argv) {
     hnswlib::HEDS<float>* alg_hnsw;
 
     std::cout << "Initialize the index for time series data..." << std::endl;
-    //alg_hnsw = new hnswlib::HEDS<float>(&space, window_size, num_windows, M, ef_construction);
     TimeSeriesHNSW<float> *ts_index = new TimeSeriesHNSW<float>(&space, window_size, num_windows, M);
     
 
