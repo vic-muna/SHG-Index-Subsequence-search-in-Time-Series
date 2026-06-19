@@ -1,4 +1,5 @@
 #include "../../hnswlib/hnswlib.h"
+#include "../../timeseries/TimeSeriesHNSW.h"
 
 int main(int argc, char** argv) {
 
@@ -43,14 +44,15 @@ int main(int argc, char** argv) {
     hnswlib::HEDS<float>* alg_hnsw;
 
     std::cout << "Initialize the index for time series data..." << std::endl;
-    alg_hnsw = new hnswlib::HEDS<float>(&space, window_size, num_windows, M, ef_construction);
+    //alg_hnsw = new hnswlib::HEDS<float>(&space, window_size, num_windows, M, ef_construction);
+    TimeSeriesHNSW<float> *ts_index = new TimeSeriesHNSW<float>(&space, window_size, num_windows, M);
     
 
     // ------------------------------  STEP 3: Build the index ------------------------------ 
     Performance per;
     Timer t;
     
-    std:: cout <<  "maxFixLevel_ : " <<  alg_hnsw->maxFixLevel_ << " " << "rep_size: " << alg_hnsw->data_rep_size_ << std::endl;
+    std::cout <<  "maxFixLevel_ : " <<  alg_hnsw->maxFixLevel_ << " " << "rep_size: " << alg_hnsw->data_rep_size_ << std::endl;
     std::cout << std::endl;
 
     t.restart();
@@ -116,6 +118,6 @@ int main(int argc, char** argv) {
     clear_2d_array(groundtruth, num_windows);
     clear_2d_array(data, num_base); 
     */
-    delete alg_hnsw;
+    delete ts_index;
     return 0;
 }
