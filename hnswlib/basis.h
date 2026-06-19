@@ -179,21 +179,6 @@ void load_query_groundtruth(std::string &dataset, int &num_query, float** &query
     std::cout << "Finish reading ..." << std::endl;
 }
 
-void load_query_ts(std::string &dataset, int &num_query, float** &queryVectors){
-    
-    queryVectors = new float*[num_query];
-    int left = 0;
-    int right = 0;
-
-    for (uint32_t i = 0; i < num_query; ++i){
-        queryVectors[i] = 1.0;
-    }
-
-
-
-    
-}
-
 void load_query_groundtruth_(std::string &dataset, int &num_query, float** &queryVectors, int** &groundtruth){
     
     std::string query_input = "./" + dataset + "/" + dataset +"_query.fbin";

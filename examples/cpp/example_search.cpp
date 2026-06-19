@@ -24,56 +24,32 @@ int main(int argc, char** argv) {
 
     unsigned int header[3] = {};
     loadin.read((char*)header, sizeof(header));
+    int num_windows = header[2] - window_size + 1;
 
-    int num_query = -1;
+    float** data = new float* [num_windows];
+
+    std::cout << "Start loading time series data..." << std::endl;
+    for(int i = 0; i < num_windows; ++i){
+        data[i] = new float[window_size];
+        loadin.read((char*)data[i], sizeof(float) * window_size);        
+    }
     
-    // float **queryVectors = nullptr;
-
-
-    std::cout << "Eine Time Series wird geladen." << std::endl;
-    num_query = header[2] - window_size + 1;
-    load_query_ts(dataset, num_query, queryVectors);
-    num_base = header[2] - window_size + 1;
-    dim = window_size;
-    
-
 
     // ------------------------------  STEP 2: Initial the index ------------------------------ 
     
 
     // Initing index
-    hnswlib::L2Space space(dim);
+    hnswlib::L2Space space(window_size);
     hnswlib::HEDS<float>* alg_hnsw;
 
-    if (isTimeSeries == "true"){
-        std::cout << "Initialize the index for time series data..." << std::endl;
-        alg_hnsw = new hnswlib::HEDS<float>(&space, dim, num_base, M, ef_construction);
-    } else {
-        std::cout << "Initialize the index for vector data..." << std::endl;
-        alg_hnsw = new hnswlib::HEDS<float>(&space, dim, num_base + num_query, M, ef_construction);
-    }
+    std::cout << "Initialize the index for time series data..." << std::endl;
+    alg_hnsw = new hnswlib::HEDS<float>(&space, window_size, num_windows, M, ef_construction);
     
 
     // ------------------------------  STEP 3: Build the index ------------------------------ 
     Performance per;
     Timer t;
     
-    float** data = new float* [num_base];
-
-    if (isTimeSeries == "true"){
-        std::cout << "Start loading time series data..." << std::endl;
-        for(int i = 0; i < num_base; ++i){
-            data[i] = new float[dim];
-            loadin.read((char*)data[i], sizeof(float) * window_size);        
-        }
-    } else {
-        std::cout << "Start loading vector data..." << std::endl;
-        for(int i = 0; i < num_base; ++i){
-            data[i] = new float[dim];
-            loadin.read((char*)data[i], sizeof(float) * header[2]);        
-        }
-    }
-
     std:: cout <<  "maxFixLevel_ : " <<  alg_hnsw->maxFixLevel_ << " " << "rep_size: " << alg_hnsw->data_rep_size_ << std::endl;
     std::cout << std::endl;
 
@@ -112,11 +88,12 @@ int main(int argc, char** argv) {
     construction_res << "Memory cost of shortcuts: " << (alg_hnsw->Shortcuts.size_in_bytes()) << std::endl;
     construction_res.close();
     // ------------------------------  STEP 3: Load the query and groundtruth ------------------------------
+    /*
     std::string search_res_path = "./results/" + dataset + "_" + algo + "_"+std::to_string(K)+"_search.txt";
     std::ofstream search_res(search_res_path);
 
     alg_hnsw->resultsProcessing.assign(num_base * (alg_hnsw->maxlevel_+1),-1);
-    for(int i = 0; i< num_query; i++){
+    for(int i = 0; i< num_windows; i++){
         alg_hnsw->addDataPoint(queryVectors[i], num_base+i, -1, per);
 
         Query query(num_base+i, K);
@@ -135,9 +112,10 @@ int main(int argc, char** argv) {
     }
     // search_res.close();
 
-    clear_2d_array(queryVectors, num_query);
-    clear_2d_array(groundtruth, num_query);
-    clear_2d_array(data, num_base);
+    clear_2d_array(queryVectors, num_windows);
+    clear_2d_array(groundtruth, num_windows);
+    clear_2d_array(data, num_base); 
+    */
     delete alg_hnsw;
     return 0;
 }
