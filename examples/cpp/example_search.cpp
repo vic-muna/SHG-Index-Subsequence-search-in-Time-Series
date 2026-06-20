@@ -1,5 +1,6 @@
 #include "../../hnswlib/hnswlib.h"
 #include "../../ts/TimeSeriesHNSW.h"
+#include "../../ts/TimeSeriesSpace.h"
 
 int main(int argc, char** argv) {
 
@@ -24,15 +25,16 @@ int main(int argc, char** argv) {
     }
 
     unsigned int header[3] = {};
-    loadin.read((char*)header, sizeof(header));
-    int num_windows = header[2] - window_size + 1;
+    loadin.read(reinterpret_cast<char*>(header), sizeof(header));
 
-    float** data = new float* [num_windows];
+    size_t num_total_floats = header[2];
+    int num_windows = num_total_floats - window_size + 1;
 
-    std::cout << "Start loading time series data..." << std::endl;
-    for(int i = 0; i < num_windows; ++i){
-        data[i] = new float[window_size];
-        loadin.read((char*)data[i], sizeof(float) * window_size);        
+    std::vector<float> data(num_total_floats);
+    loadin.read(reinterpret_cast<char*>(data.data()), num_total_floats * sizeof(float));
+
+    if (!loadin){
+        throw std::runtime_error("Error while reading the bin!");
     }
     
 
@@ -45,20 +47,20 @@ int main(int argc, char** argv) {
 
     std::cout << "Initialize the index for time series data..." << std::endl;
     TimeSeriesHNSW<float> *ts_index = new TimeSeriesHNSW<float>(&space, window_size, num_windows, M);
-    
 
+    
     // ------------------------------  STEP 3: Build the index ------------------------------ 
     Performance per;
     Timer t;
     
-    std::cout <<  "maxFixLevel_ : " <<  alg_hnsw->maxFixLevel_ << " " << "rep_size: " << alg_hnsw->data_rep_size_ << std::endl;
+    std::cout <<  "maxFixLevel_ : " <<  ts_index->maxFixLevel_ << " " << "rep_size: " << ts_index->data_rep_size_ << std::endl;
     std::cout << std::endl;
 
     t.restart();
-    for(int i = 0; i< num_base; ++i){
+    for(int i = 0; i < num_windows; ++i){
         if(algo == "heds"){
             //std::cout << "Insert: " << i << std::endl;
-            alg_hnsw->addDataPoint(data[i], i, 1, per);
+            ts_index->addDataPoint(data[i], i, 1, per);
         }   
     }
 
