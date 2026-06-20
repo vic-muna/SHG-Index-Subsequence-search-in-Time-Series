@@ -45,8 +45,8 @@ int main(int argc, char** argv) {
     hnswlib::L2Space space(window_size);
     hnswlib::HEDS<float>* alg_hnsw;
 
-    std::cout << "Initialize the index for time series data..." << std::endl;
-    TimeSeriesHNSW<float> *ts_index = new TimeSeriesHNSW<float>(&space, window_size, num_windows, M);
+    TimeSeriesSpace ts_space(data.data(), window_size, num_total_floats);
+    TimeSeriesHNSW<float> *ts_index = new TimeSeriesHNSW<float>(&ts_space, window_size, num_windows, M);
 
     
     // ------------------------------  STEP 3: Build the index ------------------------------ 
@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
     for(int i = 0; i < num_windows; ++i){
         if(algo == "heds"){
             //std::cout << "Insert: " << i << std::endl;
-            ts_index->addDataPoint(data[i], i, 1, per);
+            //ts_index->addDataPoint(data[i], i, 1, per);
         }   
     }
 

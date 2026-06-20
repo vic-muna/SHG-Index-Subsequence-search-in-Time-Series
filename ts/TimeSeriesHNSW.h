@@ -78,7 +78,7 @@ public:
         throw std::runtime_error("saveIndex ist noch nicht implementiert!");
     }
     
-    void addDataPoint(const void *data_point, labeltype label, int flag, Performance &per, bool replace_deleted = false) {
+    /*void addDataPoint(const void *data_point, labeltype label, int flag, Performance &per, bool replace_deleted = false) {
         if ((allow_replace_deleted_ == false) && (replace_deleted == true)) {
             throw std::runtime_error("Replacement of deleted elements is disabled in constructor");
         }
@@ -116,5 +116,5 @@ public:
             unmarkDeletedInternal(internal_id_replaced);
             updatePoint(data_point, internal_id_replaced, 1.0);
         }
-    }
+    }*/
 };

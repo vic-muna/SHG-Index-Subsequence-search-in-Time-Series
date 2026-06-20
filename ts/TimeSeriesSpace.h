@@ -1,48 +1,74 @@
-#include "hnswlib.h"
+#include "../hnswlib/hnswlib.h"
+#include <vector>
+#include <cmath>
+#include <limits>
 
-class L2Space : public SpaceInterface<float> {
-    DISTFUNC<float> fstdistfunc_;
-    size_t data_size_;
-    size_t dim_;
+class TimeSeriesSpace : public hnswlib::SpaceInterface<float>{
+private:
+    float* data_;
+    size_t window_size_;
+    size_t num_windows_;
 
- public:
-    L2Space(size_t dim) {
-        fstdistfunc_ = L2Sqr;
-#if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
-    #if defined(USE_AVX512)
-        if (AVX512Capable())
-            L2SqrSIMD16Ext = L2SqrSIMD16ExtAVX512;
-        else if (AVXCapable())
-            L2SqrSIMD16Ext = L2SqrSIMD16ExtAVX;
-    #elif defined(USE_AVX)
-        if (AVXCapable())
-            L2SqrSIMD16Ext = L2SqrSIMD16ExtAVX;
-    #endif
+    std::vector<float> means_;
+    std::vector<float> stds_;
 
-        if (dim % 16 == 0)
-            fstdistfunc_ = L2SqrSIMD16Ext;
-        else if (dim % 4 == 0)
-            fstdistfunc_ = L2SqrSIMD4Ext;
-        else if (dim > 16)
-            fstdistfunc_ = L2SqrSIMD16ExtResiduals;
-        else if (dim > 4)
-            fstdistfunc_ = L2SqrSIMD4ExtResiduals;
-#endif
-        dim_ = dim;
-        data_size_ = dim * sizeof(float);
+    hnswlib::DISTFUNC<float> fstdistfunc_;
+
+public:
+    TimeSeriesSpace(const float* data, size_t window_size, size_t num_total_floats) {
+        data_ = data;
+        window_size_ = window_size;
+        num_windows_ = num_total_floats - window_size + 1;
+
+        means_.resize(num_windows_);
+        stds_.resize(num_windows_);
+        
+        // TODO: calculate rolling means and standard deviations
+
+        fstdistfunc_ = distance_wrapper;
+    }   
+
+    size_t get_data_size() override{
+        return sizeof(size_t);
     }
 
-    size_t get_data_size() {
-        return data_size_;
-    }
-
-    DISTFUNC<float> get_dist_func() {
+    hnswlib::DISTFUNC<float> get_dist_func() override{
         return fstdistfunc_;
     }
 
-    void *get_dist_func_param() {
-        return &dim_;
+    void *get_dist_func_param() override{
+        return this;
     }
 
-    ~L2Space() {}
+    ~TimeSeriesSpace() override{}
+
+
+    static float distance_wrapper(const void* pVect1v, const void* pVect2v, const void* qty_ptr) {
+        size_t idx1 = reinterpret_cast<const size_t*>(pVect1v);
+        size_t idx2 = reinterpret_cast<const size_t*>(pVect2v);
+
+        const TimeSeriesSpace* space = reinterpret_cast<const TimeSeriesSpace*>(qty_ptr);
+
+        if (std::abs(static_cast<long long>(idx1)) - std::abs(static_cast<long long>(idx2)) <= space->window_size_ / 2){
+            return std::numeric_limits<floats>::max();
+        }
+
+        const float* vec1 = space->data_ + idx1;
+        const float* vec2 = space->data_ + idx2;
+        float mu1 = space->means_[idx1];
+        float sigma1 = space->stds_[idx1];
+        float mu2 = space->means_[idx2];
+        float sigma2 = space->stds_[idx2];
+
+        float res = 0.0f;
+        for (size_t i = 0; i < space->window_size_; ++i) {
+            float norm1 = (vec1 - mu1) / sigma1;
+            float norm2 = (vec2 - mu2) / sigma2;
+
+            float diff = norm1 - norm2;
+            res += diff * diff; 
+        }
+
+        return res;
+    }
 };
