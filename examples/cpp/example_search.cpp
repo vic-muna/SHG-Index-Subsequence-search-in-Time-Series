@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
     std::string algo(argv[1]);
     std::string dataset(argv[2]);
     int K = std::stoi(argv[3]);
-    int window_size = std::stoi(argv[4]);
+    int window_size = std::stoi(argv[4]);       // For TimeSeries specifically
 
     std::string file = "./" + dataset + "/" + dataset +".data_new";
     std::ifstream loadin(file.c_str(), std::ios::binary);
@@ -28,6 +28,10 @@ int main(int argc, char** argv) {
     loadin.read(reinterpret_cast<char*>(header), sizeof(header));
 
     size_t num_total_floats = header[2];
+    
+    if (num_total_floats < window_size) {
+        throw std::runtime_error("Window size is larger than the number of values.")
+    }
     int num_windows = num_total_floats - window_size + 1;
 
     std::vector<float> data(num_total_floats);
