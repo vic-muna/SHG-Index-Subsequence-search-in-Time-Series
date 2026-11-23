@@ -1,2 +1,2 @@
-Build Index Time : 1.2e-05 [s]
+Build Index Time : 17.11 [s]
 Preprocessing Time: 0 [s]

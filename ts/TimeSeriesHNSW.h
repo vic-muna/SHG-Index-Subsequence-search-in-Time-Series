@@ -4,6 +4,13 @@
 #include <stdlib.h>
 #include <memory>
 
+/*
+TimeSeriesHNSW sets up the memory layout for the index by allocating the contiguous Level 0 buffer 
+(where all nodes and their 8-byte window indices live), computing the SHG compression level sizes, 
+and initializing the pointer array for upper-level connections. It also declares searchKnn, saveIndex, 
+and addDataPoint method as the foundation for searching, saving, and inserting nodes.
+*/
+
 template<typename dist_t>
 class TimeSeriesHNSW : public hnswlib::AlgorithmInterface<dist_t>{
 public:

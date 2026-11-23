@@ -19,7 +19,8 @@ int main(int argc, char** argv) {
 
     std::string file = "./" + dataset + "/" + dataset +".data_new";
     std::ifstream loadin(file.c_str(), std::ios::binary);
-    while (!loadin) {
+    while (!loadin) 
+    {
         printf("Fail to find data file!\n");
         exit(0);
     }
@@ -29,15 +30,17 @@ int main(int argc, char** argv) {
 
     size_t num_total_floats = header[2];
     
-    if (num_total_floats < window_size) {
-        throw std::runtime_error("Window size is larger than the number of values.")
+    if (num_total_floats < window_size) 
+    {
+        throw std::runtime_error("Window size is larger than the number of values.");
     }
     int num_windows = num_total_floats - window_size + 1;
 
     std::vector<float> data(num_total_floats);
     loadin.read(reinterpret_cast<char*>(data.data()), num_total_floats * sizeof(float));
 
-    if (!loadin){
+    if (!loadin)
+    {
         throw std::runtime_error("Error while reading the bin!");
     }
     
@@ -46,12 +49,18 @@ int main(int argc, char** argv) {
     
 
     // Initing index
-    hnswlib::L2Space space(window_size);
-    hnswlib::HEDS<float>* alg_hnsw;
-
-    TimeSeriesSpace ts_space(data.data(), window_size, num_total_floats);
-    TimeSeriesHNSW<float> *ts_index = new TimeSeriesHNSW<float>(&ts_space, window_size, num_windows, M);
-
+    if (algo == "heds")
+    {
+        hnswlib::L2Space space(window_size);
+        hnswlib::HEDS<float>* alg_hnsw;
+    } else if (algo == "ts_index")
+    {
+        TimeSeriesSpace ts_space(data.data(), window_size, num_total_floats);
+        TimeSeriesHNSW<float> *ts_index = new TimeSeriesHNSW<float>(&ts_space, window_size, num_windows, M);
+    } else
+    {
+        throw std::runtime_error("algo is an unknown value.")
+    }
     
     // ------------------------------  STEP 3: Build the index ------------------------------ 
     Performance per;
@@ -81,10 +90,11 @@ int main(int argc, char** argv) {
     t.restart();
     //std::cout << "max Level: " << *std::max_element(alg_hnsw->element_levels_.begin(),alg_hnsw->element_levels_.end()) << " min Level: " << *std::min_element(alg_hnsw->element_levels_.begin(),alg_hnsw->element_levels_.end()) << " maxFix" << alg_hnsw->maxFixLevel_ << std::endl;
     if(algo == "heds"){
-        alg_hnsw->buildShortcuts(num_base);
+        //alg_hnsw->buildShortcuts(num_base);
     }
     per.setTimeShortcut(t.elapsed());
 
+    /*
     // std::cout << "Tree height: " << alg_hnsw->maxlevel_ << std::endl;
     // std::cout << "Num of elements: " << num_base << std::endl;
     //std::cout << "Build shortcut time: " << per.getTimeShortcut() << std::endl;
@@ -94,6 +104,7 @@ int main(int argc, char** argv) {
     construction_res << "Memory cost: " << (alg_hnsw->indexFileSize(num_base))/ (1024.0 * 1024.0) << std::endl;
     construction_res << "Memory cost of shortcuts: " << (alg_hnsw->Shortcuts.size_in_bytes()) << std::endl;
     construction_res.close();
+    */
     // ------------------------------  STEP 3: Load the query and groundtruth ------------------------------
     /*
     std::string search_res_path = "./results/" + dataset + "_" + algo + "_"+std::to_string(K)+"_search.txt";

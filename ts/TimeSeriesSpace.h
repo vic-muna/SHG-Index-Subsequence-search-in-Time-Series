@@ -3,9 +3,13 @@
 #include <cmath>
 #include <limits>
 
+/*
+This class mainly makes sure that only space for pointers gets initialized and not whole windows of Time Series
+Segments. Furthermore, it calculates distances between windows/nodes on the fly.
+*/
 class TimeSeriesSpace : public hnswlib::SpaceInterface<float>{
 private:
-    float* data_;
+    const float* data_;
     size_t window_size_;
     size_t num_windows_;
 
@@ -44,13 +48,13 @@ public:
 
 
     static float distance_wrapper(const void* pVect1v, const void* pVect2v, const void* qty_ptr) {
-        size_t idx1 = reinterpret_cast<const size_t*>(pVect1v);
-        size_t idx2 = reinterpret_cast<const size_t*>(pVect2v);
+        size_t idx1 = *reinterpret_cast<const size_t*>(pVect1v);
+        size_t idx2 = *reinterpret_cast<const size_t*>(pVect2v);
 
         const TimeSeriesSpace* space = reinterpret_cast<const TimeSeriesSpace*>(qty_ptr);
 
-        if (std::abs(static_cast<long long>(idx1)) - std::abs(static_cast<long long>(idx2)) <= space->window_size_ / 2){
-            return std::numeric_limits<floats>::max();
+        if (std::abs(std::abs(static_cast<long long>(idx1)) - std::abs(static_cast<long long>(idx2))) <= space->window_size_ / 2){
+            return std::numeric_limits<float>::max();
         }
 
         const float* vec1 = space->data_ + idx1;
@@ -62,8 +66,8 @@ public:
 
         float res = 0.0f;
         for (size_t i = 0; i < space->window_size_; ++i) {
-            float norm1 = (vec1 - mu1) / sigma1;
-            float norm2 = (vec2 - mu2) / sigma2;
+            float norm1 = (vec1[i] - mu1) / sigma1;
+            float norm2 = (vec2[i] - mu2) / sigma2;
 
             float diff = norm1 - norm2;
             res += diff * diff; 
