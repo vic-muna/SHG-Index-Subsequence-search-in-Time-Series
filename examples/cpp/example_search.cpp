@@ -46,34 +46,38 @@ int main(int argc, char** argv) {
     
 
     // ------------------------------  STEP 2: Initial the index ------------------------------ 
-    
+    TimeSeriesHNSW<float>* ts_index = nullptr;
+    hnswlib::HEDS<float>* alg_hnsw = nullptr;
+    std::unique_ptr<TimeSeriesSpace> ts_space_ptr;
 
     // Initing index
     if (algo == "heds")
     {
         hnswlib::L2Space space(window_size);
         hnswlib::HEDS<float>* alg_hnsw;
-    } else if (algo == "ts_index")
+    } 
+    else if (algo == "ts_index")
     {
-        TimeSeriesSpace ts_space(data.data(), window_size, num_total_floats);
-        TimeSeriesHNSW<float> *ts_index = new TimeSeriesHNSW<float>(&ts_space, window_size, num_windows, M);
-    } else
+        ts_space_ptr = std::make_unique<TimeSeriesSpace>(data.data(), window_size, num_total_floats);
+        ts_index = new TimeSeriesHNSW<float>(ts_space_ptr.get(), window_size, num_windows, M);
+    } 
+    else
     {
-        throw std::runtime_error("algo is an unknown value.")
+        throw std::runtime_error("algo is an unknown value.");
     }
     
     // ------------------------------  STEP 3: Build the index ------------------------------ 
     Performance per;
     Timer t;
-    
+
     std::cout <<  "maxFixLevel_ : " <<  ts_index->maxFixLevel_ << " " << "rep_size: " << ts_index->data_rep_size_ << std::endl;
     std::cout << std::endl;
 
     t.restart();
     for(int i = 0; i < num_windows; ++i){
         if(algo == "heds"){
-            //std::cout << "Insert: " << i << std::endl;
-            //ts_index->addDataPoint(data[i], i, 1, per);
+            std::cout << "Insert: " << i << std::endl;
+            //ts_index->addDataPoint(&i, i, 1, per);
         }   
     }
 
@@ -134,6 +138,7 @@ int main(int argc, char** argv) {
     clear_2d_array(groundtruth, num_windows);
     clear_2d_array(data, num_base); 
     */
-    delete ts_index;
+    
+    //delete ts_index;
     return 0;
 }
