@@ -81,16 +81,16 @@ public:
         return this;
     }
 
-    const float* getWindowPtr(size_t window_idx){
-
+    const float* getWindowPtr(size_t window_idx) const{
+        return &data_[window_idx];
     }
 
-    float getMean(size_t window_idx){
-
+    float getMean(size_t window_idx) const{
+        return means_[window_idx];
     }
 
-    float getStd(size_t window_idx){
-
+    float getStd(size_t window_idx) const{
+        return stds_[window_idx];
     }
 
     ~TimeSeriesSpace() override{}
