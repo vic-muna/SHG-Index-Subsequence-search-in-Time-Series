@@ -134,6 +134,7 @@ public:
         std::vector<float> rep;
         rep.reserve(data_rep_size_ + window_size_);
 
+        //TODO: fill in the get functions
         const float* raw_window = ts_space_->getWindowPtr(window_idx);
         float mu = ts_space_->getMean(window_idx);
         float sigma = ts_space_->getStd(window_idx);
@@ -145,6 +146,7 @@ public:
 
         int previous_level_pos = 0;
 
+        //TODO: understand wtf is going on here
         for(int cur_lev = 1; cur_lev <= maxFixLevel_; cur_lev++){
             int previous_level_size = getDatasizeLevel(cur_lev-1);
 
