@@ -3,6 +3,7 @@
 #include <vector>
 #include <cmath>
 #include <limits>
+#include <algorithm>
 
 /*
 This class mainly makes sure that only space for pointers gets initialized and not whole windows of Time Series
@@ -29,6 +30,41 @@ public:
         stds_.resize(num_windows_);
         
         // TODO: calculate rolling means and standard deviations
+        double rolling_mean{0};
+        double mean{0};
+        double rolling_sum_sq{0};
+        double variance{0};
+        
+        for (size_t i = 0; i < window_size; i++)
+        {
+            rolling_mean += data[i];
+            double val = static_cast<double>(data[i]);
+            rolling_sum_sq += val * val;
+        }
+
+        mean = rolling_mean / window_size;
+        means_[0] = mean;
+
+        variance = (rolling_sum_sq / window_size) - (mean * mean);
+        stds_[0] = std::sqrt(std::max(0.0, variance));
+        
+        for (size_t i = window_size; i < num_total_floats; i++)
+        {
+            rolling_mean += data[i];
+            rolling_mean -= data[i - window_size];
+
+            double val = static_cast<double>(data[i]);
+            double old_val = static_cast<double>(data[i - window_size]);
+
+            rolling_sum_sq += val * val;
+            rolling_sum_sq -= old_val * old_val;
+
+            mean = rolling_mean / window_size;
+            means_[i - window_size + 1] = mean;
+
+            variance = (rolling_sum_sq / window_size) - (mean * mean);
+            stds_[i - window_size + 1] = std::sqrt(std::max(0.0, variance));
+        }
 
         fstdistfunc_ = distance_wrapper;
     }   
