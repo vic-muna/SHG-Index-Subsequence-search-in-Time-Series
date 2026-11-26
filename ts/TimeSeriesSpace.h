@@ -1,3 +1,4 @@
+#pragma once
 #include "../hnswlib/hnswlib.h"
 #include <vector>
 #include <cmath>
@@ -42,6 +43,18 @@ public:
 
     void *get_dist_func_param() override{
         return this;
+    }
+
+    const float* getWindowPtr(size_t window_idx){
+
+    }
+
+    float getMean(size_t window_idx){
+
+    }
+
+    float getStd(size_t window_idx){
+
     }
 
     ~TimeSeriesSpace() override{}
