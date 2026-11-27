@@ -24,6 +24,12 @@ public:
     unsigned int k_{4}; // for determining amount of layers
     TimeSeriesSpace *ts_space_;
     size_t window_size_;
+    char *data_rep_memory_{nullptr};
+    size_t size_links_per_element_{0};
+    int maxlevel_{-1};
+    int enterpoint_node_{-1};
+    size_t max_elements_{0};
+    using tableint = unsigned int;
 
     char **linkLists_{nullptr};
 
@@ -54,7 +60,7 @@ public:
         }
         
         
-        size_t link_list_size = sizeof(unsigned short) + M0 * sizeof(int);
+        size_t link_list_size = sizeof(unsigned int) + M0 * sizeof(int);
         offsetData_ = link_list_size;
         size_data_per_element_ = sizeof(size_t) + link_list_size;
 
@@ -75,6 +81,21 @@ public:
         }
 
         window_size_ = window_size;
+
+        max_elements_ = num_windows;
+
+        // Size of one upper-level neighbor list: 4-byte count + M neighbor IDs
+        size_links_per_element_ = sizeof(unsigned int) + M * sizeof(tableint);
+
+        // Allocate memory for all SHG compressed representations
+        if (data_rep_size_ > 0) {
+            data_rep_memory_ = (char *) malloc(num_windows * data_rep_size_ * sizeof(float));
+            if (data_rep_memory_ == nullptr) {
+                free(level0_memory_);
+                free(linkLists_);
+                throw std::runtime_error("Not enough memory for SHG representations");
+            }
+        }
         
         std::cout << "Level 0 memory allocated at: " << (void*) level0_memory_ << " | Node size: " << size_data_per_element_ << " bytes." << std::endl;
     }
@@ -83,9 +104,12 @@ public:
     ~TimeSeriesHNSW(){
         if (level0_memory_ != nullptr) free(level0_memory_);
         if (linkLists_ != nullptr) {
-            // Hier müssten später auch noch die individuellen Listen in linkLists_[i] gefree'd werden
+            for (size_t i = 0; i < max_elements_; i++) {
+                if (linkLists_[i] != nullptr) free(linkLists_[i]);
+            }
             free(linkLists_);
         }
+        if (data_rep_memory_ != nullptr) free(data_rep_memory_);
     }
 
     inline char* getDataByInternalId(size_t internal_id) const {
@@ -134,7 +158,6 @@ public:
         std::vector<float> rep;
         rep.reserve(data_rep_size_ + window_size_);
 
-        //TODO: fill in the get functions
         const float* raw_window = ts_space_->getWindowPtr(window_idx);
         float mu = ts_space_->getMean(window_idx);
         float sigma = ts_space_->getStd(window_idx);
@@ -174,25 +197,25 @@ public:
         }
 
         rep.erase(rep.begin(), rep.begin() + getDatasizeLevel(0));
-      
-        memcpy(data_rep_memory_+cur_c*data_rep_size_*sizeof(float), rep.data(), rep.size() * sizeof(float));
-
-        per.timePreprocessing += t.elapsed();
-        if(flag == -1){
-            return cur_c;
+        
+        if (data_rep_size_ > 0) {
+            memcpy(data_rep_memory_ + window_idx * data_rep_size_ * sizeof(float), rep.data(), rep.size() * sizeof(float));
         }
-        //t.restart();
+        
         if (curlevel) {
-            linkLists_[cur_c] = (char *) malloc(size_links_per_element_ * curlevel + 1);
-            if (linkLists_[cur_c] == nullptr)
+            linkLists_[window_idx] = (char *) malloc(size_links_per_element_ * curlevel + 1);
+            if (linkLists_[window_idx] == nullptr)
                 throw std::runtime_error("Not enough memory: addPoint failed to allocate linklist");
-            memset(linkLists_[cur_c], 0, size_links_per_element_ * curlevel + 1);
+            memset(linkLists_[window_idx], 0, size_links_per_element_ * curlevel + 1);
         }
+
+        int maxlevelcopy = maxlevel_;
+        int currObj = enterpoint_node_;
 
         if ((signed)currObj != -1) {
             if (curlevel < maxlevelcopy) {
 
-                dist_t curdist = getDisByLevel(cur_c, currObj, 0);
+                dist_t curdist = getDisByLevel(window_idx, currObj, 0);
 
                 for (int level = maxlevelcopy; level > curlevel; level--) {
                     
@@ -215,7 +238,7 @@ public:
                             if (cand < 0 || cand > max_elements_)
                                 std::cout << cand << " cand error";
                                 //throw std::runtime_error("cand error");
-                            dist_t d = getDisByLevel(cur_c, cand, 0);
+                            dist_t d = getDisByLevel(window_idx, cand, 0);
 
                             if (d < curdist) {
                                 curdist = d;
@@ -227,34 +250,25 @@ public:
                 }
             }
 
-            bool epDeleted = isMarkedDeleted(enterpoint_copy);
             for (int level = std::min(curlevel, maxlevelcopy); level >= 0; level--) {
                 if (level > maxlevelcopy || level < 0)  // possible?
                     throw std::runtime_error("Level error");
 
                 std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates = searchBaseLayer(
-                        currObj, data_point, label, level);
-                if (epDeleted) {
-                    //top_candidates.emplace(fstdistfunc_(data_point, getDataByInternalId(enterpoint_copy), dist_func_param_), enterpoint_copy);
-                    top_candidates.emplace(getDisByLevel(label, enterpoint_copy, 0), enterpoint_copy);
-                    if (top_candidates.size() > ef_construction_)
-                        top_candidates.pop();
-                }
-                currObj = mutuallyConnectNewElement(data_point, cur_c, top_candidates, level, false);
+                        currObj, window_idx, level);
+
+                currObj = mutuallyConnectNewElement(window_idx, top_candidates, level, false);
             }
         } else {
             // Do nothing for the first element
-            enterpoint_node_ = 0;
+            enterpoint_node_ = window_idx;
             maxlevel_ = curlevel;
         }
 
         // Releasing lock for the maximum level
         if (curlevel > maxlevelcopy) {
-            enterpoint_node_ = cur_c;
+            enterpoint_node_ = window_idx;
             maxlevel_ = curlevel;
         }
-
-        //per.timeBuildindex += t.elapsed();
-        return cur_c;
     }
 };
