@@ -84,10 +84,8 @@ public:
 
         max_elements_ = num_windows;
 
-        // Size of one upper-level neighbor list: 4-byte count + M neighbor IDs
         size_links_per_element_ = sizeof(unsigned int) + M * sizeof(tableint);
 
-        // Allocate memory for all SHG compressed representations
         if (data_rep_size_ > 0) {
             data_rep_memory_ = (char *) malloc(num_windows * data_rep_size_ * sizeof(float));
             if (data_rep_memory_ == nullptr) {
@@ -100,7 +98,6 @@ public:
         std::cout << "Level 0 memory allocated at: " << (void*) level0_memory_ << " | Node size: " << size_data_per_element_ << " bytes." << std::endl;
     }
 
-    //TODO
     ~TimeSeriesHNSW(){
         if (level0_memory_ != nullptr) free(level0_memory_);
         if (linkLists_ != nullptr) {
@@ -146,6 +143,176 @@ public:
         std::uniform_real_distribution<double> distribution(0.0, 1.0);
         double r = -log(distribution(level_generator_)) * reverse_size;
         return (int) r;
+    }
+
+    unsigned short int getListCount(linklistsizeint * ptr) const {
+        return *((unsigned short int *)ptr);
+    }
+
+    linklistsizeint *get_linklist(tableint internal_id, int level) const {
+        return (linklistsizeint *) (linkLists_[internal_id] + (level - 1) * size_links_per_element_);
+    }
+
+    char *getDataRepreByLevel(tableint internalId, int level) const{
+        if(level == 0) return getDataByInternalId(internalId);
+        size_t size_sum_previous = 0;
+        
+        for(int i=1; i<level; i++) size_sum_previous+= getDatasizeLevel(i);
+        return (data_rep_memory_ + internalId * data_rep_size_*sizeof(float) + size_sum_previous*sizeof(float));
+    }
+
+    dist_t getDisByLevel(tableint data1, tableint data2, int level) const {
+        
+        if(level >= maxFixLevel_){
+            float *pVect1 = (float *) getDataRepreByLevel(data1, maxFixLevel_);
+            float *pVect2 = (float *) getDataRepreByLevel(data2, maxFixLevel_);
+            float t = *pVect1 - *pVect2;
+            return t*t;
+        }
+
+        float *pVect1 = (float *) getDataRepreByLevel(data1, level);
+        float *pVect2 = (float *) getDataRepreByLevel(data2, level);
+
+        int rep_size = getDatasizeLevel(level);
+        float res = 0;
+        for (int i = 0; i < rep_size; i++) {
+            float t = *pVect1 - *pVect2;
+            pVect1++;
+            pVect2++;
+            res += t * t;
+        }
+        return res;
+    }
+
+    tableint mutuallyConnectNewElement(
+        const void *data_point,
+        tableint cur_c,
+        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> &top_candidates,
+        int level,
+        bool isUpdate) {
+        size_t Mcurmax = level ? maxM_ : maxM0_;
+
+        getNeighborsByHeuristic2(top_candidates, M_, level);
+
+        if (top_candidates.size() > M_)
+            throw std::runtime_error("Should be not be more than M_ candidates returned by the heuristic");
+
+        std::vector<tableint> selectedNeighbors;
+        selectedNeighbors.reserve(M_);
+        while (top_candidates.size() > 0) {
+            selectedNeighbors.push_back(top_candidates.top().second);
+            top_candidates.pop();
+        }
+
+        tableint next_closest_entry_point = selectedNeighbors.back();
+
+        {
+            // lock only during the update
+            linklistsizeint *ll_cur;
+            if (level == 0)
+                ll_cur = get_linklist0(cur_c);
+            else
+                ll_cur = get_linklist(cur_c, level);
+
+            if (*ll_cur && !isUpdate) {
+                throw std::runtime_error("The newly inserted element should have blank link list");
+            }
+            setListCount(ll_cur, selectedNeighbors.size());
+            tableint *data = (tableint *) (ll_cur + 1);
+            for (size_t idx = 0; idx < selectedNeighbors.size(); idx++) {
+                if (data[idx] && !isUpdate)
+                    throw std::runtime_error("Possible memory corruption");
+                if (level > element_levels_[selectedNeighbors[idx]])
+                    throw std::runtime_error("Trying to make a link on a non-existent level");
+
+                data[idx] = selectedNeighbors[idx];
+            }
+        }
+
+        for (size_t idx = 0; idx < selectedNeighbors.size(); idx++) {
+
+            linklistsizeint *ll_other;
+            if (level == 0)
+                ll_other = get_linklist0(selectedNeighbors[idx]);
+            else
+                ll_other = get_linklist(selectedNeighbors[idx], level);
+
+            size_t sz_link_list_other = getListCount(ll_other);
+
+            if (sz_link_list_other > Mcurmax)
+                throw std::runtime_error("Bad value of sz_link_list_other");
+            if (selectedNeighbors[idx] == cur_c)
+                throw std::runtime_error("Trying to connect an element to itself");
+            if (level > element_levels_[selectedNeighbors[idx]])
+                throw std::runtime_error("Trying to make a link on a non-existent level");
+
+            tableint *data = (tableint *) (ll_other + 1);
+
+            bool is_cur_c_present = false;
+            if (isUpdate) {
+                for (size_t j = 0; j < sz_link_list_other; j++) {
+                    if (data[j] == cur_c) {
+                        is_cur_c_present = true;
+                        break;
+                    }
+                }
+            }
+
+            // If cur_c is already present in the neighboring connections of `selectedNeighbors[idx]` then no need to modify any connections or run the heuristics.
+            if (!is_cur_c_present) {
+                if (sz_link_list_other < Mcurmax) {
+                    data[sz_link_list_other] = cur_c;
+                    setListCount(ll_other, sz_link_list_other + 1);
+                } else {
+                    // finding the "weakest" element to replace it with the new one
+
+                    //dist_t d_max = getDisByLevel(getDataByInternalId(cur_c), getDataByInternalId(selectedNeighbors[idx]), level);
+                    dist_t d_max = getDisByLevel(cur_c, selectedNeighbors[idx], 0);
+
+                    // Heuristic:
+                    std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidates;
+                    candidates.emplace(d_max, cur_c);
+
+                    for (size_t j = 0; j < sz_link_list_other; j++) {
+                        
+                        // dist_t d_ = getDisByLevel(getDataByInternalId(data[j]), getDataByInternalId(selectedNeighbors[idx])
+                        //                         , level);
+                        dist_t d_ = getDisByLevel(data[j], selectedNeighbors[idx]
+                                                , 0);
+
+                        candidates.emplace(d_, data[j]);
+                        // candidates.emplace(
+                        //         fstdistfunc_(getDataByInternalId(data[j]), getDataByInternalId(selectedNeighbors[idx]),
+                        //                         dist_func_param_), data[j]);
+                    }
+
+                    getNeighborsByHeuristic2(candidates, Mcurmax,level);
+
+                    int indx = 0;
+                    while (candidates.size() > 0) {
+                        data[indx] = candidates.top().second;
+                        candidates.pop();
+                        indx++;
+                    }
+
+                    setListCount(ll_other, indx);
+                    // Nearest K:
+                    /*int indx = -1;
+                    for (int j = 0; j < sz_link_list_other; j++) {
+                        dist_t d = fstdistfunc_(getDataByInternalId(data[j]), getDataByInternalId(rez[idx]), dist_func_param_);
+                        if (d > d_max) {
+                            indx = j;
+                            d_max = d;
+                        }
+                    }
+                    if (indx >= 0) {
+                        data[indx] = cur_c;
+                    } */
+                }
+            }
+        }
+
+        return next_closest_entry_point;
     }
     
     void addDataPoint(size_t window_idx) {
