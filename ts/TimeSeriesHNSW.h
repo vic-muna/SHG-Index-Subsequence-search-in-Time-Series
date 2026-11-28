@@ -23,8 +23,8 @@ public:
     char *level0_memory_{nullptr};
     size_t size_data_per_element_{0};
 
-    size_t data_rep_size_{0};
-    size_t offsetData_;
+    size_t data_rep_size_{0};   // The total number of floats needed to store all compressed upper levels (Level 1 up to maxFixLevel_) for a single window.
+
     unsigned int maxFixLevel_{0}; // base layer in HNSW is layer0
     unsigned int k_{4}; // for determining amount of layers
     TimeSeriesSpace *ts_space_;
@@ -81,8 +81,7 @@ public:
         
         
         size_t link_list_size = sizeof(unsigned int) + M0 * sizeof(int);
-        offsetData_ = link_list_size;
-        size_data_per_element_ = sizeof(size_t) + link_list_size;
+        size_data_per_element_ = link_list_size;
 
         level0_memory_ = (char *) malloc(num_windows * size_data_per_element_);
 
@@ -138,10 +137,6 @@ public:
         if (data_rep_memory_ != nullptr) free(data_rep_memory_);
     }
 
-    inline char* getDataByInternalId(size_t internal_id) const {
-        return level0_memory_ + internal_id * size_data_per_element_ + offsetData_;
-    }
-
     size_t getDatasizeLevel(int level) const{
         if(level == 0) return window_size_;
         else{
@@ -187,7 +182,6 @@ public:
     }
 
     char *getDataRepreByLevel(tableint internalId, int level) const{
-        if(level == 0) return getDataByInternalId(internalId);
         size_t size_sum_previous = 0;
         
         for(int i=1; i<level; i++) size_sum_previous+= getDatasizeLevel(i);
@@ -474,9 +468,8 @@ public:
         int curlevel = getRandomLevel(mult_);
 
         memset(level0_memory_ + window_idx * size_data_per_element_, 0, size_data_per_element_);
-        memcpy(getDataByInternalId(window_idx), &window_idx, sizeof(size_t));
 
-        std::vector<float> rep;
+        std::vector<float> rep;     // will hold z-normalized values for a window
         rep.reserve(data_rep_size_ + window_size_);
 
         const float* raw_window = ts_space_->getWindowPtr(window_idx);
@@ -497,13 +490,14 @@ public:
             for(int i = 0; i< previous_level_size; i+=k_){
                 float sum = 0;
 
-                if(i+k_ > previous_level_size){
-                    //std::cout  << "i+k_ > previous_level_size " << std::endl;
+                if(i+k_ > previous_level_size){     // This if part comes if the remainder is not divisible by k_. Otherwise same as else block
+
                     for(int j = i; j< previous_level_size; j++) sum += rep[previous_level_pos + j];
                     float var = float(sum) /float(previous_level_size-i);
                     rep.push_back(var);
-                }else{
-                    //std::cout  << "else i+k_ > previous_level_size " << std::endl;
+
+                }else{      // This step is Piecewise Aggregate Approximation / PAA -> it calculates the higher level values for the current window
+                    
                     for(int j = i; j<i+k_;j++){
                         sum += rep[previous_level_pos + j];
                     }                    
@@ -514,12 +508,12 @@ public:
 
             }
 
-            previous_level_pos+= previous_level_size;
+            previous_level_pos += previous_level_size;      // goes through all levels above 0
         }
 
         rep.erase(rep.begin(), rep.begin() + getDatasizeLevel(0));
         
-        if (data_rep_size_ > 0) {
+        if (data_rep_size_ > 0) {       // save compressed levels in data_rep_memory + ...
             memcpy(data_rep_memory_ + window_idx * data_rep_size_ * sizeof(float), rep.data(), rep.size() * sizeof(float));
         }
         
