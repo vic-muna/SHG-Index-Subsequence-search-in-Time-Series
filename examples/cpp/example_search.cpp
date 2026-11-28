@@ -74,10 +74,10 @@ int main(int argc, char** argv) {
     std::cout << std::endl;
 
     t.restart();
-    for(int i = 0; i < num_windows; ++i){
-        if(algo == "heds"){
+    for(size_t i = 0; i < num_windows; ++i){
+        if(algo == "ts_index"){
             std::cout << "Insert: " << i << std::endl;
-            //ts_index->addDataPoint(&i, i, 1, per);
+            ts_index->addDataPoint(i);
         }   
     }
 

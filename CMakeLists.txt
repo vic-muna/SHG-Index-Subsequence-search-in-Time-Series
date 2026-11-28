@@ -118,6 +118,10 @@ if(HNSWLIB_EXAMPLES)
 
     # examples
     add_executable(example_search examples/cpp/example_search.cpp)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        add_compile_options(-g -O0 -fsanitize=address -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address)
+    endif()
     ##target_link_libraries(example_search hnswlib)
     target_link_libraries(example_search PRIVATE hnswlib::hnswlib pgm::pgm)
 
